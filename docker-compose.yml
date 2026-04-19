@@ -1,0 +1,101 @@
+version: "3.9"
+
+services:
+
+  # ─── PostgreSQL ────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pipeline
+      POSTGRES_PASSWORD: pipeline
+      POSTGRES_DB: pipeline
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pipeline"]
+      interval: 5s
+      retries: 5
+
+  # ─── RabbitMQ ──────────────────────────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: pipeline
+      RABBITMQ_DEFAULT_PASS: pipeline
+    ports:
+      - "5672:5672"    # AMQP
+      - "15672:15672"  # Management UI → http://localhost:15672
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      retries: 5
+
+  # ─── FastAPI (HTTP layer) ───────────────────────────────────────────────────
+  api:
+    build: ./api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://pipeline:pipeline@postgres/pipeline
+      RABBITMQ_URL: amqp://pipeline:pipeline@rabbitmq/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./api:/app
+      - uploads:/app/uploads
+
+  # ─── Worker (scalable) ─────────────────────────────────────────────────────
+  worker:
+    build: ./worker
+    environment:
+      DATABASE_URL: postgresql+psycopg2://pipeline:pipeline@postgres/pipeline
+      RABBITMQ_URL: amqp://pipeline:pipeline@rabbitmq/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/uploads
+    # Scale with: docker compose up --scale worker=3
+
+  # ─── Prometheus ────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  # ─── Grafana ───────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.0
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+
+  # ─── RabbitMQ Prometheus Exporter ─────────────────────────────────────────
+  rabbitmq_exporter:
+    image: kbudde/rabbitmq-exporter:latest
+    environment:
+      RABBIT_URL: http://rabbitmq:15672
+      RABBIT_USER: pipeline
+      RABBIT_PASSWORD: pipeline
+    depends_on:
+      - rabbitmq
+    ports:
+      - "9419:9419"
+
+volumes:
+  pgdata:
+  grafana_data:
+  uploads:

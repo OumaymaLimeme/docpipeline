@@ -1,0 +1,43 @@
+{
+  "title": "Async Document Pipeline",
+  "uid": "docpipeline",
+  "schemaVersion": 36,
+  "refresh": "10s",
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Jobs Completed",
+      "gridPos": {"x":0,"y":0,"w":6,"h":4},
+      "targets": [{"expr": "sum(worker_jobs_processed_total{status='done'})","legendFormat":"Done"}]
+    },
+    {
+      "id": 2, "type": "stat", "title": "Jobs Failed",
+      "gridPos": {"x":6,"y":0,"w":6,"h":4},
+      "targets": [{"expr": "sum(worker_jobs_processed_total{status='failed'})","legendFormat":"Failed"}]
+    },
+    {
+      "id": 3, "type": "stat", "title": "Total Uploads",
+      "gridPos": {"x":12,"y":0,"w":6,"h":4},
+      "targets": [{"expr": "sum(pipeline_uploads_total)","legendFormat":"Uploads"}]
+    },
+    {
+      "id": 4, "type": "graph", "title": "Job Throughput (per min)",
+      "gridPos": {"x":0,"y":4,"w":12,"h":8},
+      "targets": [{"expr": "rate(worker_jobs_processed_total[1m])*60","legendFormat":"{{status}}"}]
+    },
+    {
+      "id": 5, "type": "graph", "title": "Avg Processing Time (s)",
+      "gridPos": {"x":12,"y":4,"w":12,"h":8},
+      "targets": [{"expr": "rate(worker_job_duration_seconds_sum[5m]) / rate(worker_job_duration_seconds_count[5m])","legendFormat":"{{file_type}}"}]
+    },
+    {
+      "id": 6, "type": "graph", "title": "RabbitMQ Queue Depth",
+      "gridPos": {"x":0,"y":12,"w":12,"h":8},
+      "targets": [{"expr": "rabbitmq_queue_messages_ready","legendFormat":"{{queue}}"}]
+    },
+    {
+      "id": 7, "type": "graph", "title": "API Request Latency p95",
+      "gridPos": {"x":12,"y":12,"w":12,"h":8},
+      "targets": [{"expr": "histogram_quantile(0.95, rate(pipeline_request_duration_seconds_bucket[5m]))","legendFormat":"p95 {{endpoint}}"}]
+    }
+  ]
+}
