@@ -1,16 +1,64 @@
 # Async Document Processing Pipeline
 
-A distributed system that accepts PDF/CSV uploads, processes them asynchronously via scalable Python workers, tracks job state in PostgreSQL, and provides full observability via Prometheus + Grafana.
+This project is a scalable asynchronous document processing system designed to handle large volumes of PDF and CSV files efficiently.
 
-## Architecture
+It leverages a distributed architecture with message queues and background workers to ensure high performance and reliability.
 
-```
-Client → FastAPI (HTTP) → RabbitMQ → Worker(s) → PostgreSQL
-                                          ↓
-                              Prometheus ← metrics
-                                   ↓
-                               Grafana (dashboards)
-```
+## 🧩 Architecture
+
+The system consists of:
+
+FastAPI: Handles incoming requests and task creation
+RabbitMQ: Message broker for task distribution
+Workers: Background services that process documents
+PostgreSQL: Stores processed data and metadata
+Prometheus & Grafana: Monitoring and observability
+Docker Compose: Containerized deployment and scaling
+
+        ┌──────────────┐
+        │   Client     │
+        │ (Frontend)   │
+        └──────┬───────┘
+               │ HTTP Request (Upload File)
+               ▼
+        ┌──────────────┐
+        │   FastAPI    │
+        │   (API)      │
+        └──────┬───────┘
+               │ Send Task
+               ▼
+        ┌──────────────┐
+        │  RabbitMQ    │
+        │  (Queue)     │
+        └──────┬───────┘
+        ┌──────┴──────────────┐
+        │                     │
+        ▼                     ▼
+ ┌──────────────┐     ┌──────────────┐
+ │  Worker 1    │     │  Worker 2    │   ... (N workers)
+ └──────┬───────┘     └──────┬───────┘
+        │ Process File        │
+        ▼                     ▼
+        ┌────────────────────────┐
+        │   PostgreSQL DB        │
+        └────────────────────────┘
+
+        ┌──────────────┐
+        │ Prometheus   │
+        └──────┬───────┘
+               ▼
+        ┌──────────────┐
+        │  Grafana     │
+        └──────────────┘
+        
+## ⚙️ How It Works
+
+A user uploads a document via the API
+The API sends a processing task to RabbitMQ
+Workers consume tasks from the queue
+Documents are processed asynchronously
+Results are stored in PostgreSQL
+Metrics are collected and visualized in Grafana
 
 ## Stack
 
@@ -22,6 +70,15 @@ Client → FastAPI (HTTP) → RabbitMQ → Worker(s) → PostgreSQL
 | Database    | PostgreSQL 16                 |
 | Monitoring  | Prometheus + Grafana          |
 | Container   | Docker Compose                |
+
+##  💡 Why This Project?
+
+This project demonstrates:
+
+Distributed systems design
+Asynchronous processing
+Scalability and fault tolerance
+DevOps and observability practices
 
 ## Quick Start
 
@@ -145,13 +202,5 @@ docker compose up --scale worker=3
 2. Go to Dashboards → Pipeline → "Async Document Pipeline"
 3. Upload files and watch metrics update in real time
 
-### Step 5 — Add to GitHub
-```bash
-git init
-git add .
-git commit -m "feat: initial async document processing pipeline"
-git remote add origin https://github.com/<you>/docpipeline.git
-git push -u origin main
-```
 
 Write a solid README (this file is your README) and add screenshots of the Grafana dashboard.
